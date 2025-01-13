@@ -95,7 +95,7 @@ struct AddButton: View {
         }) {
             Image(systemName: "plus.circle.fill")
                 .font(.system(size: 50))
-                .foregroundColor(Color(hex: 0x007AFF))
+                .foregroundColor(.red)
                 .shadow(radius: 3)
                 .padding()
         }
