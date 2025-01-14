@@ -3,21 +3,35 @@ import SwiftUI
 /// 日任务视图 - 显示每日任务时间线
 struct DayTasksView: View {
     let tasks: [Task]
-    // 显示时间范围：早8点到晚10点
-    private let hourRange = 8...22
+    // 显示时间范围：0点到24点
+    private let hourRange = 0...23
     
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                // 只显示有任务的时间段
-                ForEach(hourRange, id: \.self) { hour in
-                    if !tasksForHour(hour).isEmpty {
-                        HourRowView(hour: hour, tasks: tasksForHour(hour))
+            if tasks.isEmpty {
+                // 空状态提示
+                VStack(spacing: 16) {
+                    Image(systemName: "calendar.badge.plus")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray)
+                    Text("今天还没有待办事项")
+                        .font(.system(size: 16))
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, 100)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    // 显示所有任务
+                    ForEach(hourRange, id: \.self) { hour in
+                        if !tasksForHour(hour).isEmpty {
+                            HourRowView(hour: hour, tasks: tasksForHour(hour))
+                        }
                     }
                 }
+                // 水平内边距：16px
+                .padding(.horizontal)
             }
-            // 水平内边距：16px
-            .padding(.horizontal)
         }
     }
     
@@ -85,7 +99,7 @@ struct TaskRowView: View {
                 
                 // 任务时间和持续时间
                 HStack(spacing: 8) {
-                    Text(timeString)
+                    Text("\(Calendar.current.component(.hour, from: task.time))小时\(Calendar.current.component(.minute, from: task.time))分钟")
                         .font(.system(size: 14))
                         .foregroundColor(.gray)
                     
@@ -118,12 +132,6 @@ struct TaskRowView: View {
         .background(Color(.systemBackground))
         .cornerRadius(8)
         .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
-    }
-    
-    private var timeString: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: task.time)
     }
 }
 

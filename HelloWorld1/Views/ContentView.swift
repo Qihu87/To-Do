@@ -67,6 +67,8 @@ struct ContentView: View {
             .sheet(isPresented: $showingAddTask) {
                 AddTaskView(selectedDate: selectedDate)
                     .interactiveDismissDisabled()
+                    .presentationBackground(Color(hex: "F6F5FA"))
+                    .presentationCornerRadius(24)
             }
         }
     }
@@ -81,7 +83,12 @@ struct ContentView: View {
     
     /// 获取选中日期的所有任务
     private var selectedDateTasks: [Task] {
-        tasks.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
+        tasks.filter { task in
+            let taskDate = Calendar.current.startOfDay(for: task.date)
+            let selectedStartDate = Calendar.current.startOfDay(for: selectedDate)
+            return taskDate == selectedStartDate
+        }
+        .sorted { $0.time < $1.time }  // 按时间排序
     }
 }
 

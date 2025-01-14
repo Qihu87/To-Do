@@ -1,6 +1,21 @@
 import SwiftUI
 import SwiftData
 
+// 自定义底部弹窗样式
+struct CustomSheetStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .presentationDetents([.height(420)])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(24)
+            .presentationBackground {
+                Color(hex: "F6F5FA")
+                    .ignoresSafeArea()
+            }
+            .interactiveDismissDisabled()  // 防止意外下滑关闭
+    }
+}
+
 struct AddTaskView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -9,97 +24,319 @@ struct AddTaskView: View {
     @State private var taskTitle = ""
     @State private var taskDate: Date
     @State private var taskTime = Date()
+    @State private var endTime = Date()
     @State private var showAlert = false
-    @State private var selectedIcon = "calendar"
-    @State private var selectedColor = Color.blue
+    @State private var selectedIcon = "bed.double.fill"
+    @State private var selectedColor = Color(hex: "F4A7B9")
     @State private var showingIconPicker = false
-    @State private var duration: Double = 1 // 默认15分钟，1个单位
     @State private var showDatePicker = false
+    @State private var showTimePicker = false
+    @State private var repeatOption = "仅一次"
+    @State private var showRepeatOptions = false
+    @State private var reminderTime = "开始前5分钟提醒我"
+    @State private var showReminderOptions = false
     @FocusState private var isTitleFocused: Bool
     
-    private let icons = ["calendar", "book.fill", "pencil", "doc.fill", "folder.fill", "star.fill", "heart.fill", "bell.fill", "flag.fill", "tag.fill"]
-    private let colors: [Color] = [.blue, .red, .green, .orange, .purple, .pink, .yellow, .gray]
+    private let repeatOptions = ["仅一次", "每日", "每周", "每月", "自定义"]
     private let calendar = Calendar.current
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy年M月d日"
+        formatter.dateFormat = "yyyy/M/d"
+        return formatter
+    }()
+    
+    private let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
         return formatter
     }()
     
     init(selectedDate: Date) {
         self.selectedDate = selectedDate
         _taskDate = State(initialValue: selectedDate)
+        _taskTime = State(initialValue: selectedDate)
+        _endTime = State(initialValue: Calendar.current.date(byAdding: .minute, value: 15, to: selectedDate) ?? selectedDate)
     }
     
     var body: some View {
         NavigationView {
-            Form {
-                Section {
-                    HStack {
-                        Button(action: { showingIconPicker = true }) {
-                            Image(systemName: selectedIcon)
-                                .font(.title2)
-                                .foregroundColor(.white)
-                                .frame(width: 36, height: 36)
-                                .background(selectedColor)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                        }
-                        
-                        TextField("任务名称", text: $taskTitle)
-                            .focused($isTitleFocused)
-                    }
-                }
+            ZStack {
+                Color(hex: "F6F5FA")
+                    .ignoresSafeArea()
                 
-                Section {
-                    // 日期选择
-                    Button(action: {
-                        showDatePicker = true
-                    }) {
-                        HStack {
-                            Text("日期")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            Text(dateFormatter.string(from: taskDate))
-                                .foregroundColor(.gray)
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // 任务名称输入
+                        HStack(spacing: 12) {
+                            Button(action: { showingIconPicker = true }) {
+                                Image(systemName: selectedIcon)
+                                    .font(.title2)
+                                    .foregroundColor(.white)
+                                    .frame(width: 40, height: 40)
+                                    .background(selectedColor)
+                                    .clipShape(Circle())
+                            }
+                            
+                            TextField("任务名称", text: $taskTitle)
+                                .focused($isTitleFocused)
+                                .font(.system(size: 17))
                         }
-                    }
-                    
-                    // 时间选择
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("时间")
-                            .foregroundColor(.gray)
-                        DatePicker("", selection: $taskTime, displayedComponents: .hourAndMinute)
-                            .datePickerStyle(.wheel)
-                            .labelsHidden()
-                    }
-                    
-                    // 持续时间
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("持续时间")
-                                .foregroundColor(.gray)
-                            Spacer()
-                            Text("\(Int(duration * 15))分钟")
-                                .foregroundColor(.blue)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(Color.white)
+                        .cornerRadius(12)
+                        
+                        // 时间设置部分
+                        VStack(spacing: 0) {
+                            // 日期选择标题
+                            Text("什么时候?")
+                                .font(.system(size: 17))
+                                .foregroundColor(Color(hex: "999999"))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 8)
+                            
+                            VStack(spacing: 0) {
+                                // 日期选择按钮
+                                Button(action: { showDatePicker.toggle() }) {
+                                    HStack {
+                                        Image(systemName: "calendar")
+                                            .foregroundColor(.black)
+                                            .frame(width: 24, height: 24)
+                                        Text(dateFormatter.string(from: taskDate))
+                                            .foregroundColor(.primary)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .foregroundColor(Color(hex: "999999"))
+                                            .rotationEffect(.degrees(showDatePicker ? 90 : 0))
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 12)
+                                }
+                                
+                                if showDatePicker {
+                                    VStack(spacing: 16) {
+                                        HStack {
+                                            Text("日期")
+                                                .font(.system(size: 15))
+                                                .foregroundColor(Color(hex: "999999"))
+                                            Spacer()
+                                            Text("时间段")
+                                                .font(.system(size: 15))
+                                                .foregroundColor(Color(hex: "999999"))
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .padding(.top, 12)
+                                        
+                                        DatePicker(
+                                            "",
+                                            selection: $taskDate,
+                                            displayedComponents: .date
+                                        )
+                                        .datePickerStyle(.graphical)
+                                        .padding(.horizontal, 16)
+                                        
+                                        Button("确定") {
+                                            showDatePicker = false
+                                        }
+                                        .frame(width: 343, height: 44)
+                                        .background(selectedColor)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(22)
+                                        .padding(.bottom, 16)
+                                    }
+                                }
+                            }
+                            .background(Color.white)
+                            .cornerRadius(12)
                         }
                         
-                        Slider(value: $duration, in: 1...12, step: 1)
-                            .accentColor(.blue)
+                        // 具体时间部分
+                        VStack(spacing: 0) {
+                            Text("具体时间?")
+                                .font(.system(size: 17))
+                                .foregroundColor(Color(hex: "999999"))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 8)
+                            
+                            VStack(spacing: 0) {
+                                Button(action: { showTimePicker.toggle() }) {
+                                    HStack {
+                                        Image(systemName: "clock")
+                                            .foregroundColor(.black)
+                                            .frame(width: 24, height: 24)
+                                        Text("\(Calendar.current.component(.hour, from: taskTime))小时\(Calendar.current.component(.minute, from: taskTime))分钟")
+                                            .foregroundColor(.primary)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .foregroundColor(Color(hex: "999999"))
+                                            .rotationEffect(.degrees(showTimePicker ? 90 : 0))
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 12)
+                                }
+                                
+                                if showTimePicker {
+                                    VStack(spacing: 16) {
+                                        HStack(spacing: 0) {
+                                            Picker("小时", selection: Binding(
+                                                get: { Calendar.current.component(.hour, from: taskTime) },
+                                                set: { newHour in
+                                                    var components = Calendar.current.dateComponents([.year, .month, .day, .minute], from: taskTime)
+                                                    components.hour = newHour
+                                                    if let newDate = Calendar.current.date(from: components) {
+                                                        taskTime = newDate
+                                                    }
+                                                }
+                                            )) {
+                                                ForEach(0..<24) { hour in
+                                                    Text("\(hour)")
+                                                        .tag(hour)
+                                                }
+                                            }
+                                            .pickerStyle(.wheel)
+                                            .frame(width: 100)
+                                            
+                                            Text("小时")
+                                                .font(.system(size: 17))
+                                                .foregroundColor(.black)
+                                                .padding(.trailing, 30)
+                                            
+                                            Picker("分钟", selection: Binding(
+                                                get: { Calendar.current.component(.minute, from: taskTime) },
+                                                set: { newMinute in
+                                                    var components = Calendar.current.dateComponents([.year, .month, .day, .hour], from: taskTime)
+                                                    components.minute = newMinute
+                                                    if let newDate = Calendar.current.date(from: components) {
+                                                        taskTime = newDate
+                                                    }
+                                                }
+                                            )) {
+                                                ForEach(0..<60) { minute in
+                                                    Text("\(minute)")
+                                                        .tag(minute)
+                                                }
+                                            }
+                                            .pickerStyle(.wheel)
+                                            .frame(width: 100)
+                                            
+                                            Text("分钟")
+                                                .font(.system(size: 17))
+                                                .foregroundColor(.black)
+                                        }
+                                        .padding(.horizontal, 16)
+                                        
+                                        Button("确定") {
+                                            showTimePicker = false
+                                        }
+                                        .frame(width: 343, height: 44)
+                                        .background(selectedColor)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(22)
+                                        .padding(.bottom, 16)
+                                    }
+                                }
+                            }
+                            .background(Color.white)
+                            .cornerRadius(12)
+                        }
+                        
+                        // 重复选项部分
+                        VStack(spacing: 0) {
+                            Text("多久一次?")
+                                .font(.system(size: 17))
+                                .foregroundColor(Color(hex: "999999"))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 8)
+                            
+                            HStack(spacing: 12) {
+                                ForEach(repeatOptions, id: \.self) { option in
+                                    Button(action: {
+                                        repeatOption = option
+                                    }) {
+                                        Text(option)
+                                            .font(.system(size: 15))
+                                            .foregroundColor(repeatOption == option ? .white : .primary)
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 8)
+                                            .background(
+                                                repeatOption == option ?
+                                                selectedColor :
+                                                Color(hex: "F5F5F5")
+                                            )
+                                            .cornerRadius(16)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color.white)
+                            .cornerRadius(12)
+                        }
+                        
+                        // 提醒选项部分
+                        VStack(spacing: 0) {
+                            Text("需要提醒吗?")
+                                .font(.system(size: 17))
+                                .foregroundColor(Color(hex: "999999"))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 8)
+                            
+                            Button(action: { showReminderOptions.toggle() }) {
+                                HStack {
+                                    Image(systemName: "bell")
+                                        .foregroundColor(.black)
+                                        .frame(width: 24, height: 24)
+                                    Text(reminderTime)
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .foregroundColor(Color(hex: "999999"))
+                                        .rotationEffect(.degrees(showReminderOptions ? 90 : 0))
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(Color.white)
+                                .cornerRadius(12)
+                            }
+                        }
+                        
+                        // 底部占位空间
+                        Spacer()
+                            .frame(height: 80) // 为底部按钮预留空间
                     }
+                    .padding(.top, 16)
+                    .padding(.horizontal, 16)
+                }
+                .overlay(alignment: .bottom) {
+                    // 底部创建按钮
+                    VStack(spacing: 0) {
+                        Divider()
+                        Button(action: {
+                            addTask()
+                        }) {
+                            Text("创建任务")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(width: 343, height: 54)
+                                .background(taskTitle.isEmpty ? Color(hex: "CCCCCC") : selectedColor)
+                                .cornerRadius(27)
+                        }
+                        .disabled(taskTitle.isEmpty)
+                        .padding(.vertical, 16)
+                    }
+                    .background(Color(hex: "F6F5FA"))
                 }
             }
-            .navigationTitle("添加任务")
+            .navigationTitle("创建任务")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("取消") {
                         dismiss()
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("添加") {
-                        addTask()
                     }
                 }
             }
@@ -108,18 +345,11 @@ struct AddTaskView: View {
             }
             .sheet(isPresented: $showingIconPicker) {
                 IconPickerView(selectedIcon: $selectedIcon, selectedColor: $selectedColor)
-            }
-            .sheet(isPresented: $showDatePicker) {
-                DatePickerSheet(selectedDate: $taskDate)
-                    .presentationDetents([.height(420)])
-            }
-            .onAppear {
-                // 自动调起键盘
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    isTitleFocused = true
-                }
+                    .modifier(CustomSheetStyle())
             }
         }
+        .background(Color(hex: "F6F5FA"))
+        .presentationBackground(Color(hex: "F6F5FA"))
     }
     
     private func addTask() {
@@ -147,7 +377,7 @@ struct AddTaskView: View {
                           time: taskTime,
                           icon: selectedIcon,
                           iconColor: hexColor,
-                          duration: Int(duration * 15))
+                          duration: Int(calendar.dateComponents([.minute], from: taskTime, to: endTime).minute ?? 15))
             modelContext.insert(task)
             dismiss()
         }
@@ -244,5 +474,33 @@ struct IconPickerView: View {
                 }
             }
         }
+    }
+}
+
+// 添加Color扩展，支持十六进制颜色
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
+        }
+
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
     }
 } 

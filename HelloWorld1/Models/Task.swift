@@ -47,8 +47,12 @@ final class Task {
          reminderTime: Date? = nil) {
         self.id = UUID()
         self.title = title
-        self.date = date
-        self.time = time
+        self.date = Calendar.current.startOfDay(for: date)
+        let timeComponents = Calendar.current.dateComponents([.hour, .minute], from: time)
+        var dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        dateComponents.hour = timeComponents.hour
+        dateComponents.minute = timeComponents.minute
+        self.time = Calendar.current.date(from: dateComponents) ?? time
         self.icon = icon
         self.iconColor = iconColor
         self.duration = duration
