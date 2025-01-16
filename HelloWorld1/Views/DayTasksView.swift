@@ -3,12 +3,11 @@ import SwiftUI
 /// 日任务视图 - 显示每日任务时间线
 struct DayTasksView: View {
     let tasks: [Task]
-    // 显示时间范围：0点到24点
-    private let hourRange = 0...23
+    let selectedDate: Date
     
     var body: some View {
         ScrollView {
-            if tasks.isEmpty {
+            if filteredTasks.isEmpty {
                 // 空状态提示
                 VStack(spacing: 16) {
                     Image(systemName: "calendar.badge.plus")
@@ -21,57 +20,24 @@ struct DayTasksView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.top, 100)
             } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    // 显示所有任务
-                    ForEach(hourRange, id: \.self) { hour in
-                        if !tasksForHour(hour).isEmpty {
-                            HourRowView(hour: hour, tasks: tasksForHour(hour))
-                        }
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(filteredTasks) { task in
+                        TaskRowView(task: task)
                     }
                 }
-                // 水平内边距：16px
                 .padding(.horizontal)
+                .padding(.vertical, 8)
             }
         }
     }
     
-    /// 获取指定小时的所有任务
-    private func tasksForHour(_ hour: Int) -> [Task] {
+    /// 获取当前选中日期应该显示的所有任务，并按时间排序
+    private var filteredTasks: [Task] {
         tasks.filter { task in
-            let taskHour = Calendar.current.component(.hour, from: task.time)
-            return taskHour == hour
+            task.shouldShow(on: selectedDate)
+        }.sorted { task1, task2 in
+            task1.time < task2.time
         }
-    }
-}
-
-/// 小时行视图 - 显示某个小时的所有任务
-struct HourRowView: View {
-    let hour: Int
-    let tasks: [Task]
-    @Environment(\.modelContext) private var modelContext
-    
-    var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            // 左侧时间标签
-            Text(timeString)
-                // 字体大小：14px
-                .font(.system(size: 14))
-                .foregroundColor(.gray)
-                // 时间标签宽度：50px
-                .frame(width: 50)
-            
-            // 时间线和任务列表
-            VStack(spacing: 8) {
-                ForEach(tasks) { task in
-                    TaskRowView(task: task)
-                }
-            }
-        }
-        .padding(.vertical, 8)
-    }
-    
-    private var timeString: String {
-        String(format: "%02d:00", hour)
     }
 }
 
@@ -79,9 +45,20 @@ struct HourRowView: View {
 struct TaskRowView: View {
     let task: Task
     @Environment(\.modelContext) private var modelContext
+    private let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
     
     var body: some View {
         HStack(spacing: 12) {
+            // 任务时间
+            Text(timeFormatter.string(from: task.time))
+                .font(.system(size: 14))
+                .foregroundColor(.gray)
+                .frame(width: 50, alignment: .leading)
+            
             // 任务图标
             Image(systemName: task.icon)
                 .font(.system(size: 18))
@@ -97,19 +74,11 @@ struct TaskRowView: View {
                     .foregroundColor(task.isCompleted ? .gray : .primary)
                     .strikethrough(task.isCompleted)
                 
-                // 任务时间和持续时间
-                HStack(spacing: 8) {
-                    Text("\(Calendar.current.component(.hour, from: task.time))小时\(Calendar.current.component(.minute, from: task.time))分钟")
+                // 任务持续时间
+                if task.duration > 0 {
+                    Text("\(task.duration)分钟")
                         .font(.system(size: 14))
                         .foregroundColor(.gray)
-                    
-                    if task.duration > 0 {
-                        Text("·")
-                            .foregroundColor(.gray)
-                        Text("\(task.duration)分钟")
-                            .font(.system(size: 14))
-                            .foregroundColor(.gray)
-                    }
                 }
             }
             

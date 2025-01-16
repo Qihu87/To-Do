@@ -31,13 +31,13 @@ struct AddTaskView: View {
     @State private var showingIconPicker = false
     @State private var showDatePicker = false
     @State private var showTimePicker = false
-    @State private var repeatOption = "仅一次"
+    @State private var repeatOption = Task.RepeatType.once
     @State private var showRepeatOptions = false
     @State private var reminderTime = "开始前5分钟提醒我"
     @State private var showReminderOptions = false
     @FocusState private var isTitleFocused: Bool
     
-    private let repeatOptions = ["仅一次", "每日", "每周", "每月", "自定义"]
+    private let repeatOptions = Task.RepeatType.allCases
     private let calendar = Calendar.current
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -53,9 +53,22 @@ struct AddTaskView: View {
     
     init(selectedDate: Date) {
         self.selectedDate = selectedDate
+        
+        // 使用当前时间作为默认时间
+        let now = Date()
+        let calendar = Calendar.current
+        
+        // 将选择的日期和当前时间组合
+        var components = calendar.dateComponents([.year, .month, .day], from: selectedDate)
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: now)
+        components.hour = timeComponents.hour
+        components.minute = timeComponents.minute
+        
+        let combinedDate = calendar.date(from: components) ?? now
+        
         _taskDate = State(initialValue: selectedDate)
-        _taskTime = State(initialValue: selectedDate)
-        _endTime = State(initialValue: Calendar.current.date(byAdding: .minute, value: 15, to: selectedDate) ?? selectedDate)
+        _taskTime = State(initialValue: combinedDate)
+        _endTime = State(initialValue: Calendar.current.date(byAdding: .minute, value: 15, to: combinedDate) ?? combinedDate)
     }
     
     var body: some View {
@@ -166,7 +179,7 @@ struct AddTaskView: View {
                                         Image(systemName: "clock")
                                             .foregroundColor(.black)
                                             .frame(width: 24, height: 24)
-                                        Text("\(Calendar.current.component(.hour, from: taskTime))小时\(Calendar.current.component(.minute, from: taskTime))分钟")
+                                        Text(timeFormatter.string(from: taskTime))
                                             .foregroundColor(.primary)
                                         Spacer()
                                         Image(systemName: "chevron.right")
@@ -198,7 +211,7 @@ struct AddTaskView: View {
                                             .pickerStyle(.wheel)
                                             .frame(width: 100)
                                             
-                                            Text("小时")
+                                            Text("时")
                                                 .font(.system(size: 17))
                                                 .foregroundColor(.black)
                                                 .padding(.trailing, 30)
@@ -221,7 +234,7 @@ struct AddTaskView: View {
                                             .pickerStyle(.wheel)
                                             .frame(width: 100)
                                             
-                                            Text("分钟")
+                                            Text("分")
                                                 .font(.system(size: 17))
                                                 .foregroundColor(.black)
                                         }
@@ -251,27 +264,29 @@ struct AddTaskView: View {
                                 .padding(.horizontal, 16)
                                 .padding(.bottom, 8)
                             
-                            HStack(spacing: 12) {
-                                ForEach(repeatOptions, id: \.self) { option in
-                                    Button(action: {
-                                        repeatOption = option
-                                    }) {
-                                        Text(option)
-                                            .font(.system(size: 15))
-                                            .foregroundColor(repeatOption == option ? .white : .primary)
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 8)
-                                            .background(
-                                                repeatOption == option ?
-                                                selectedColor :
-                                                Color(hex: "F5F5F5")
-                                            )
-                                            .cornerRadius(16)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    ForEach(Task.RepeatType.allCases, id: \.self) { option in
+                                        Button(action: {
+                                            repeatOption = option
+                                        }) {
+                                            Text(option.rawValue)
+                                                .font(.system(size: 15))
+                                                .foregroundColor(repeatOption == option ? .white : .primary)
+                                                .padding(.horizontal, 16)
+                                                .padding(.vertical, 8)
+                                                .background(
+                                                    repeatOption == option ?
+                                                    selectedColor :
+                                                    Color(hex: "F5F5F5")
+                                                )
+                                                .cornerRadius(16)
+                                        }
                                     }
                                 }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
                             .background(Color.white)
                             .cornerRadius(12)
                         }
@@ -316,7 +331,7 @@ struct AddTaskView: View {
                     VStack(spacing: 0) {
                         Divider()
                         Button(action: {
-                            addTask()
+                            saveTask()
                         }) {
                             Text("创建任务")
                                 .font(.headline)
@@ -352,35 +367,26 @@ struct AddTaskView: View {
         .presentationBackground(Color(hex: "F6F5FA"))
     }
     
-    private func addTask() {
+    private func saveTask() {
         guard !taskTitle.isEmpty else {
             showAlert = true
             return
         }
         
-        // 合并选择的日期和时间
-        let calendar = Calendar.current
-        let dateComponents = calendar.dateComponents([.year, .month, .day], from: taskDate)
-        let timeComponents = calendar.dateComponents([.hour, .minute], from: taskTime)
+        let task = Task(
+            title: taskTitle,
+            date: taskDate,
+            time: taskTime,
+            icon: selectedIcon,
+            iconColor: selectedColor.toHex() ?? "F4A7B9",
+            duration: Calendar.current.dateComponents([.minute], from: taskTime, to: endTime).minute ?? 15,
+            hasReminder: false,
+            reminderTime: nil,
+            repeatType: repeatOption
+        )
         
-        var combinedComponents = DateComponents()
-        combinedComponents.year = dateComponents.year
-        combinedComponents.month = dateComponents.month
-        combinedComponents.day = dateComponents.day
-        combinedComponents.hour = timeComponents.hour
-        combinedComponents.minute = timeComponents.minute
-        
-        if let combinedDate = calendar.date(from: combinedComponents) {
-            let hexColor = selectedColor.toHex() ?? "007AFF"
-            let task = Task(title: taskTitle, 
-                          date: combinedDate, 
-                          time: taskTime,
-                          icon: selectedIcon,
-                          iconColor: hexColor,
-                          duration: Int(calendar.dateComponents([.minute], from: taskTime, to: endTime).minute ?? 15))
-            modelContext.insert(task)
-            dismiss()
-        }
+        modelContext.insert(task)
+        dismiss()
     }
 }
 

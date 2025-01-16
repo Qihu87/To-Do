@@ -21,7 +21,7 @@ struct ContentView: View {
                     .padding(.top)
                 
                 // 当日任务视图
-                DayTasksView(tasks: selectedDateTasks)
+                DayTasksView(tasks: tasks, selectedDate: selectedDate)
                     // 顶部内边距：16px
                     .padding(.top)
             }
@@ -84,9 +84,7 @@ struct ContentView: View {
     /// 获取选中日期的所有任务
     private var selectedDateTasks: [Task] {
         tasks.filter { task in
-            let taskDate = Calendar.current.startOfDay(for: task.date)
-            let selectedStartDate = Calendar.current.startOfDay(for: selectedDate)
-            return taskDate == selectedStartDate
+            task.shouldShow(on: selectedDate)
         }
         .sorted { $0.time < $1.time }  // 按时间排序
     }
