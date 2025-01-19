@@ -21,6 +21,8 @@ final class Task {
     var date: Date
     /// 任务时间
     var time: Date
+    /// 任务结束时间
+    var endTime: Date?
     /// 任务图标
     var icon: String
     /// 图标颜色（十六进制）
@@ -45,6 +47,7 @@ final class Task {
     ///   - title: 任务标题
     ///   - date: 任务日期
     ///   - time: 任务时间
+    ///   - endTime: 任务结束时间
     ///   - icon: 任务图标
     ///   - iconColor: 图标颜色（十六进制）
     ///   - duration: 持续时间（分钟）
@@ -54,6 +57,7 @@ final class Task {
     init(title: String, 
          date: Date, 
          time: Date, 
+         endTime: Date? = nil,
          icon: String = "calendar",
          iconColor: String = "007AFF",
          duration: Int = 15,
@@ -63,11 +67,25 @@ final class Task {
         self.id = UUID()
         self.title = title
         self.date = Calendar.current.startOfDay(for: date)
+        
+        // 设置开始时间
         let timeComponents = Calendar.current.dateComponents([.hour, .minute], from: time)
         var dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: date)
         dateComponents.hour = timeComponents.hour
         dateComponents.minute = timeComponents.minute
         self.time = Calendar.current.date(from: dateComponents) ?? time
+        
+        // 设置结束时间（如果有）
+        if let endTime = endTime {
+            let endTimeComponents = Calendar.current.dateComponents([.hour, .minute], from: endTime)
+            var endDateComponents = Calendar.current.dateComponents([.year, .month, .day], from: date)
+            endDateComponents.hour = endTimeComponents.hour
+            endDateComponents.minute = endTimeComponents.minute
+            self.endTime = Calendar.current.date(from: endDateComponents)
+        } else {
+            self.endTime = nil
+        }
+        
         self.icon = icon
         self.iconColor = iconColor
         self.duration = duration
@@ -77,6 +95,30 @@ final class Task {
         self.isCompleted = false
         self.repeatType = repeatType
         self.createdDate = date
+    }
+    
+    /// 格式化显示时间
+    var formattedTimeString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        
+        if let endTime = endTime {
+            // 如果有结束时间，显示时间段和持续时间
+            let duration = Calendar.current.dateComponents([.hour, .minute], from: time, to: endTime)
+            let durationString = formatDuration(hours: duration.hour ?? 0, minutes: duration.minute ?? 0)
+            return "\(formatter.string(from: time)) — \(formatter.string(from: endTime)) (\(durationString))"
+        } else {
+            // 如果没有结束时间，只显示开始时间
+            return formatter.string(from: time)
+        }
+    }
+    
+    private func formatDuration(hours: Int, minutes: Int) -> String {
+        if hours > 0 {
+            return "\(hours)小时\(minutes > 0 ? "\(minutes)分钟" : "")"
+        } else {
+            return "\(minutes)分钟"
+        }
     }
     
     /// 判断任务是否应该在指定日期显示

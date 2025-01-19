@@ -45,15 +45,33 @@ struct DayTasksView: View {
 struct TaskRowView: View {
     let task: Task
     @Environment(\.modelContext) private var modelContext
+    
     private let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         return formatter
     }()
     
+    private var isTimeRange: Bool {
+        task.endTime != nil
+    }
+    
+    private var durationString: String {
+        guard let endTime = task.endTime else { return "" }
+        let duration = Calendar.current.dateComponents([.hour, .minute], from: task.time, to: endTime)
+        let hours = duration.hour ?? 0
+        let minutes = duration.minute ?? 0
+        
+        if hours > 0 {
+            return "\(hours).\(minutes/30 > 0 ? "5" : "0")小时"
+        } else {
+            return "\(minutes)分钟"
+        }
+    }
+    
     var body: some View {
-        HStack(spacing: 12) {
-            // 任务时间
+        HStack(alignment: .center, spacing: 12) {
+            // 左侧时间显示
             Text(timeFormatter.string(from: task.time))
                 .font(.system(size: 14))
                 .foregroundColor(.gray)
@@ -67,19 +85,25 @@ struct TaskRowView: View {
                 .background(Color.fromHex(task.iconColor))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             
+            // 右侧内容
             VStack(alignment: .leading, spacing: 4) {
+                if isTimeRange {
+                    // 时间段显示
+                    Text("\(timeFormatter.string(from: task.time)) - \(timeFormatter.string(from: task.endTime!)) (\(durationString))")
+                        .font(.system(size: 14))
+                        .foregroundColor(.gray)
+                } else {
+                    // 时间点显示
+                    Text(timeFormatter.string(from: task.time))
+                        .font(.system(size: 14))
+                        .foregroundColor(.gray)
+                }
+                
                 // 任务标题
                 Text(task.title)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(task.isCompleted ? .gray : .primary)
                     .strikethrough(task.isCompleted)
-                
-                // 任务持续时间
-                if task.duration > 0 {
-                    Text("\(task.duration)分钟")
-                        .font(.system(size: 14))
-                        .foregroundColor(.gray)
-                }
             }
             
             Spacer()

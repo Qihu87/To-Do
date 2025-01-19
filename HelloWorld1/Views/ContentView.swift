@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var showingAddTask = false
     @State private var selectedDate = Date()
     @State private var dragOffset: CGFloat = 0
+    @State private var showingDatePicker = false
     
     private let calendar = Calendar.current
     
@@ -54,10 +55,33 @@ struct ContentView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    // 显示当前月份
-                    Text(currentMonth)
-                        .font(.title2)
-                        .bold()
+                    // 显示当前月份，点击显示日期选择器
+                    Button(action: {
+                        showingDatePicker = true
+                    }) {
+                        Text(currentMonth)
+                            .font(.title2)
+                            .bold()
+                            .foregroundColor(.primary)
+                    }
+                }
+                
+                // 如果不是今天，显示"今天"按钮
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if !calendar.isDateInToday(selectedDate) {
+                        Button(action: {
+                            withAnimation {
+                                selectedDate = Date()
+                            }
+                        }) {
+                            Text("今")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(width: 32, height: 32)
+                                .background(Color.blue)
+                                .clipShape(Circle())
+                        }
+                    }
                 }
             }
             .overlay(alignment: .bottomTrailing) {
@@ -69,6 +93,9 @@ struct ContentView: View {
                     .interactiveDismissDisabled()
                     .presentationBackground(Color(hex: "F6F5FA"))
                     .presentationCornerRadius(24)
+            }
+            .sheet(isPresented: $showingDatePicker) {
+                DatePickerView(selectedDate: $selectedDate, isPresented: $showingDatePicker)
             }
         }
     }

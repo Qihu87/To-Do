@@ -23,8 +23,8 @@ struct AddTaskView: View {
     
     @State private var taskTitle = ""
     @State private var taskDate: Date
-    @State private var taskTime = Date()
-    @State private var endTime = Date()
+    @State private var taskTime: Date
+    @State private var endTime: Date
     @State private var showAlert = false
     @State private var selectedIcon = "bed.double.fill"
     @State private var selectedColor = Color(hex: "F4A7B9")
@@ -36,6 +36,7 @@ struct AddTaskView: View {
     @State private var reminderTime = "开始前5分钟提醒我"
     @State private var showReminderOptions = false
     @FocusState private var isTitleFocused: Bool
+    @State private var selectedMode = false
     
     private let repeatOptions = Task.RepeatType.allCases
     private let calendar = Calendar.current
@@ -54,21 +55,25 @@ struct AddTaskView: View {
     init(selectedDate: Date) {
         self.selectedDate = selectedDate
         
-        // 使用当前时间作为默认时间
+        // 初始化日期
+        let initialDate = selectedDate
+        _taskDate = State(initialValue: initialDate)
+        
+        // 初始化时间
         let now = Date()
         let calendar = Calendar.current
-        
-        // 将选择的日期和当前时间组合
         var components = calendar.dateComponents([.year, .month, .day], from: selectedDate)
         let timeComponents = calendar.dateComponents([.hour, .minute], from: now)
         components.hour = timeComponents.hour
         components.minute = timeComponents.minute
+        let initialTime = calendar.date(from: components) ?? now
         
-        let combinedDate = calendar.date(from: components) ?? now
+        // 设置初始时间
+        _taskTime = State(initialValue: initialTime)
         
-        _taskDate = State(initialValue: selectedDate)
-        _taskTime = State(initialValue: combinedDate)
-        _endTime = State(initialValue: Calendar.current.date(byAdding: .minute, value: 15, to: combinedDate) ?? combinedDate)
+        // 设置结束时间（默认为开始时间后15分钟）
+        let defaultEndTime = calendar.date(byAdding: .minute, value: 15, to: initialTime) ?? initialTime
+        _endTime = State(initialValue: defaultEndTime)
     }
     
     var body: some View {
@@ -176,11 +181,15 @@ struct AddTaskView: View {
                             VStack(spacing: 0) {
                                 Button(action: { showTimePicker.toggle() }) {
                                     HStack {
-                                        Image(systemName: "clock")
-                                            .foregroundColor(.black)
-                                            .frame(width: 24, height: 24)
-                                        Text(timeFormatter.string(from: taskTime))
-                                            .foregroundColor(.primary)
+                                        if selectedMode {
+                                            Text("\(timeFormatter.string(from: taskTime)) ~ \(timeFormatter.string(from: endTime))")
+                                                .font(.system(size: 17))
+                                                .foregroundColor(.primary)
+                                        } else {
+                                            Text(timeFormatter.string(from: taskTime))
+                                                .font(.system(size: 17))
+                                                .foregroundColor(.primary)
+                                        }
                                         Spacer()
                                         Image(systemName: "chevron.right")
                                             .foregroundColor(Color(hex: "999999"))
@@ -189,70 +198,18 @@ struct AddTaskView: View {
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 12)
                                 }
-                                
-                                if showTimePicker {
-                                    VStack(spacing: 16) {
-                                        HStack(spacing: 0) {
-                                            Picker("小时", selection: Binding(
-                                                get: { Calendar.current.component(.hour, from: taskTime) },
-                                                set: { newHour in
-                                                    var components = Calendar.current.dateComponents([.year, .month, .day, .minute], from: taskTime)
-                                                    components.hour = newHour
-                                                    if let newDate = Calendar.current.date(from: components) {
-                                                        taskTime = newDate
-                                                    }
-                                                }
-                                            )) {
-                                                ForEach(0..<24) { hour in
-                                                    Text("\(hour)")
-                                                        .tag(hour)
-                                                }
-                                            }
-                                            .pickerStyle(.wheel)
-                                            .frame(width: 100)
-                                            
-                                            Text("时")
-                                                .font(.system(size: 17))
-                                                .foregroundColor(.black)
-                                                .padding(.trailing, 30)
-                                            
-                                            Picker("分钟", selection: Binding(
-                                                get: { Calendar.current.component(.minute, from: taskTime) },
-                                                set: { newMinute in
-                                                    var components = Calendar.current.dateComponents([.year, .month, .day, .hour], from: taskTime)
-                                                    components.minute = newMinute
-                                                    if let newDate = Calendar.current.date(from: components) {
-                                                        taskTime = newDate
-                                                    }
-                                                }
-                                            )) {
-                                                ForEach(0..<60) { minute in
-                                                    Text("\(minute)")
-                                                        .tag(minute)
-                                                }
-                                            }
-                                            .pickerStyle(.wheel)
-                                            .frame(width: 100)
-                                            
-                                            Text("分")
-                                                .font(.system(size: 17))
-                                                .foregroundColor(.black)
-                                        }
-                                        .padding(.horizontal, 16)
-                                        
-                                        Button("确定") {
-                                            showTimePicker = false
-                                        }
-                                        .frame(width: 343, height: 44)
-                                        .background(selectedColor)
-                                        .foregroundColor(.white)
-                                        .cornerRadius(22)
-                                        .padding(.bottom, 16)
-                                    }
-                                }
+                                .background(Color.white)
+                                .cornerRadius(12)
                             }
-                            .background(Color.white)
-                            .cornerRadius(12)
+                            .sheet(isPresented: $showTimePicker) {
+                                TimePickerView(
+                                    startTime: $taskTime,
+                                    endTime: $endTime,
+                                    selectedMode: $selectedMode,
+                                    isPresented: $showTimePicker
+                                )
+                                .modifier(CustomSheetStyle())
+                            }
                         }
                         
                         // 重复选项部分
@@ -377,9 +334,9 @@ struct AddTaskView: View {
             title: taskTitle,
             date: taskDate,
             time: taskTime,
+            endTime: selectedMode ? endTime : nil,
             icon: selectedIcon,
             iconColor: selectedColor.toHex() ?? "F4A7B9",
-            duration: Calendar.current.dateComponents([.minute], from: taskTime, to: endTime).minute ?? 15,
             hasReminder: false,
             reminderTime: nil,
             repeatType: repeatOption
